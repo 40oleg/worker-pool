@@ -1,5 +1,5 @@
 import { Worker } from "worker_threads";
-import { FunctionStringify, FunctionParse } from "./FunctionSerializer.js";
+import { FunctionStringify } from "./FunctionSerializer.js";
 
 class WorkerPoolItem {
     constructor(worker, available) {
@@ -12,6 +12,9 @@ class WorkerPoolItem {
 
 export class WorkerPool {
     constructor(workerCount) {
+        if(workerCount < 1) {
+            throw new Error('Can not create less than one worker.')
+        }
         this.workers = new Set();
         for(let i = 0; i < workerCount; i++) {
             this.createWorker();
@@ -35,7 +38,6 @@ export class WorkerPool {
             const stringifiedFunction = FunctionStringify(func);
             for(const workerPoolItem of this.workers) {
                 if(workerPoolItem.available) {
-                    console.log('worker locked ' + workerPoolItem.id);
                     workerPoolItem.available = false;
                     const worker = workerPoolItem.worker;
                     worker.removeAllListeners();
@@ -49,10 +51,10 @@ export class WorkerPool {
                         res(data);
                     })
                     worker.once('error', (err) => {
-                        rej(err);
+                        rej(`Worker terminated with error: ${err}`);
                     })
                     worker.once('exit', (msg) => {
-                        rej(msg);
+                        rej(`Worker exited with message: ${msg}`);
                     })
                     break;
                 }
@@ -71,5 +73,6 @@ export class WorkerPool {
             worker.terminate();
         }
         this.terminated = true;
+        console.debug('All uncompleted tasks has been declined by user request.');
     }
 }
